@@ -26,5 +26,11 @@
     <string>© 2026 FOG. All rights reserved.</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>FOGNote records your microphone during call recordings.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>FOGNote transcribes recordings on-device so your calls are searchable.</string>
+    <key>NSAudioCaptureUsageDescription</key>
+    <string>FOGNote captures system audio so both sides of a call are recorded.</string>
 </dict>
 </plist>

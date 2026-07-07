@@ -32,6 +32,18 @@ A native, local-first note-taking app for macOS — the organizational power of 
 - Trash with restore and permanent delete
 - Everything stored locally — no account, no cloud
 
+**Call Intelligence (for sales calls)**
+- **Record calls**: microphone (all input channels) + **system audio** (the other side of Zoom/Teams/browser calls, via a CoreAudio process tap — audio-only permission, no screen recording)
+- Saves **MP3** (192 kbps, LAME); **join multiple recordings into one MP3**
+- **Live on-device transcription** (macOS 26 SpeechAnalyzer) with automatic speaker separation — your mic is "Me", system audio is "Them"
+- **AI summary of every recording** (on-device Apple Intelligence, nothing leaves your Mac): BANT qualification, pain points, objections & handling, competitor mentions, action items, next steps, sentiment, call score /100
+- **Talk-time ratio** live during the call (amber warning above 60% you) + longest-monologue tracking
+- **Moment bookmarks** (⌘M during a call) — jump straight to flagged moments in playback
+- **Follow-up email draft** generated from the transcript, copied to clipboard
+- Transcripts and summaries are searchable and copy-paste ready for your CRM
+
+![Call recording](docs/screenshot-recording.png)
+
 **FOGNote extras**
 - `[[Note Title]]` wiki-style note links with backlinks panel (Note Info)
 - Word/character counts, created/edited timestamps
@@ -64,6 +76,9 @@ swift test
 | Persistence | SwiftData, store at `~/Library/Application Support/FOGNote/` |
 | Body storage | RTF data + plain-text mirror for search |
 | Locking | CryptoKit salted SHA-256, session-scoped unlock |
+| Call recording | AVAudioEngine (mic) + CoreAudio process tap (system audio) → offline mix → MP3 (vendored [SwiftLAME](https://github.com/hidden-spectrum/SwiftLAME), LGPL) |
+| Transcription | SpeechAnalyzer / SpeechTranscriber (macOS 26, on-device), dual-stream for speaker separation |
+| AI summaries | FoundationModels (Apple Intelligence, on-device) with `@Generable` structured output |
 | Packaging | Swift Package executable → `.app` bundle via `Scripts/make_app.sh`, ad-hoc codesigned |
 
 ```
@@ -74,6 +89,10 @@ Sources/FOGNote/
 ├── Views/                    # ContentView, Sidebar, NoteList, NoteDetail, EditorToolbar, accessories
 └── Support/                  # AppState, seed data, extensions
 ```
+
+## Permissions (first recording)
+
+macOS will prompt for: **Microphone**, **System Audio Recording** (audio-only, not screen recording), and **Speech Recognition**. AI summaries require **Apple Intelligence** enabled in System Settings. All processing is on-device.
 
 ## Scope notes
 

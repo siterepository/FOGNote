@@ -49,6 +49,7 @@ private struct AboutCommand: View {
 struct SettingsView: View {
     @AppStorage("noteSortOrder") private var sortOrder: NoteSortOrder = .modified
     @AppStorage("trashRetentionDays") private var trashRetentionDays = 30
+    @AppStorage("autoSummarize") private var autoSummarize = true
 
     var body: some View {
         Form {
@@ -56,6 +57,10 @@ struct SettingsView: View {
                 ForEach(NoteSortOrder.allCases, id: \.self) { Text($0.rawValue) }
             }
             Stepper("Empty trash after \(trashRetentionDays) days", value: $trashRetentionDays, in: 1...365)
+            Toggle("Auto-summarize recordings with on-device AI", isOn: $autoSummarize)
+            if case .unavailable(let reason) = SummaryService.availability() {
+                Text(reason).font(.caption).foregroundStyle(.secondary)
+            }
             LabeledContent("Data location") {
                 Text("~/Library/Application Support/FOGNote")
                     .textSelection(.enabled)

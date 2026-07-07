@@ -28,6 +28,7 @@ final class Note {
     @Relationship(inverse: \Tag.notes) var tags: [Tag] = []
     @Relationship(deleteRule: .cascade, inverse: \Attachment.note) var attachments: [Attachment] = []
     @Relationship(deleteRule: .cascade, inverse: \NoteVersion.note) var versions: [NoteVersion] = []
+    @Relationship(deleteRule: .cascade, inverse: \Recording.note) var recordings: [Recording] = []
 
     init(title: String = "", notebook: Notebook? = nil) {
         self.title = title
