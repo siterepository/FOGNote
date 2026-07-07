@@ -12,7 +12,7 @@ struct FOGNoteApp: App {
         let storeURL = supportURL.appending(path: "FOGNote.store")
         let schema = Schema([
             Note.self, Notebook.self, Stack.self, Tag.self,
-            Attachment.self, NoteVersion.self, SavedSearch.self
+            Attachment.self, NoteVersion.self, SavedSearch.self, Recording.self
         ])
         do {
             container = try ModelContainer(

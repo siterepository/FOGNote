@@ -18,6 +18,8 @@ struct NoteDetailView: View {
     @State private var showReminder = false
     @State private var showAttachmentImporter = false
     @State private var saveTask: Task<Void, Never>?
+    @State private var recorder = CallRecorder()
+    @State private var showRecorder = false
 
     var body: some View {
         Group {
@@ -28,7 +30,12 @@ struct NoteDetailView: View {
             }
         }
         .toolbar { toolbarContent }
-        .onAppear(perform: loadNote)
+        .onAppear {
+            loadNote()
+            if ProcessInfo.processInfo.arguments.contains("--uitest-recorder") {
+                showRecorder = true
+            }
+        }
         .onDisappear { flushSave() }
     }
 
@@ -92,6 +99,14 @@ struct NoteDetailView: View {
                 .padding(.horizontal, 12)
                 .padding(.top, 8)
                 .onChange(of: text) { scheduleSave() }
+
+            if !note.recordings.isEmpty {
+                Divider()
+                ScrollView {
+                    RecordingsSection(note: note)
+                }
+                .frame(maxHeight: 260)
+            }
 
             if !note.attachments.isEmpty {
                 Divider()
@@ -159,6 +174,18 @@ struct NoteDetailView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
+            Button {
+                showRecorder = true
+            } label: {
+                Label("Record", systemImage: recorder.isActive ? "record.circle.fill" : "record.circle")
+                    .foregroundStyle(recorder.isActive ? Color(hex: "#E5484D") : Color.primary)
+            }
+            .keyboardShortcut("r", modifiers: [.command, .shift])
+            .help("Record a call into this note (⌘⇧R)")
+            .sheet(isPresented: $showRecorder) {
+                RecordingPanel(recorder: recorder, note: note)
+            }
+
             Button {
                 note.isPinned.toggle()
             } label: {
