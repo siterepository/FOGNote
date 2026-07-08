@@ -112,19 +112,26 @@ final class CallRecorder {
                 }
             }
 
-            let paused = isPausedFlag
-            let micTranscriber = micTranscriber
-            input.installTap(onBus: 0, bufferSize: 4096, format: micFormat) { [weak self] buffer, _ in
-                guard !paused.value else { return }
-                micWriter.write(buffer)
-                let level = buffer.rmsLevel()
-                if let copy = buffer.deepCopy() {
-                    micTranscriber?.feed(copy)
-                }
-                Task { @MainActor [weak self] in
-                    self?.registerMicActivity(level: level, duration: Double(buffer.frameLength) / micFormat.sampleRate)
+            // The tap runs on AVAudioEngine's realtime messenger queue. The
+            // block MUST be built nonisolated + @Sendable — a MainActor-
+            // inferred closure SIGTRAPs the first time audio arrives.
+            let onMicActivity: @Sendable (Float, Double) -> Void = { [weak self] level, duration in
+                Task { @MainActor in
+                    self?.registerMicActivity(level: level, duration: duration)
                 }
             }
+            input.installTap(
+                onBus: 0,
+                bufferSize: 4096,
+                format: micFormat,
+                block: Self.micTapBlock(
+                    paused: isPausedFlag,
+                    writer: micWriter,
+                    transcriber: micTranscriber,
+                    sampleRate: micFormat.sampleRate,
+                    onActivity: onMicActivity
+                )
+            )
             engine.prepare()
             try engine.start()
 
@@ -143,19 +150,17 @@ final class CallRecorder {
                         try? await sys.start(sourceFormat: tapFormat)
                         systemTranscriber = sys
                     }
-                    let systemTranscriber = systemTranscriber
-                    systemTap.onBuffer = { [weak self] buffer in
-                        guard !paused.value else { return }
-                        systemWriter.write(buffer)
-                        let level = buffer.rmsLevel()
-                        let duration = Double(buffer.frameLength) / buffer.format.sampleRate
-                        if let copy = buffer.deepCopy() {
-                            systemTranscriber?.feed(copy)
-                        }
-                        Task { @MainActor [weak self] in
+                    let onSystemActivity: @Sendable (Float, Double) -> Void = { [weak self] level, duration in
+                        Task { @MainActor in
                             self?.registerSystemActivity(level: level, duration: duration)
                         }
                     }
+                    systemTap.onBuffer = Self.systemTapBlock(
+                        paused: isPausedFlag,
+                        writer: systemWriter,
+                        transcriber: systemTranscriber,
+                        onActivity: onSystemActivity
+                    )
                 }
             }
 
@@ -171,6 +176,44 @@ final class CallRecorder {
         } catch {
             teardownCapture()
             state = .failed(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Audio-thread callbacks (nonisolated by construction)
+
+    nonisolated private static func micTapBlock(
+        paused: ThreadSafeFlag,
+        writer: TrackWriter,
+        transcriber: LiveTranscriber?,
+        sampleRate: Double,
+        onActivity: @escaping @Sendable (Float, Double) -> Void
+    ) -> (AVAudioPCMBuffer, AVAudioTime) -> Void {
+        { @Sendable buffer, _ in
+            guard !paused.value else { return }
+            writer.write(buffer)
+            let level = buffer.rmsLevel()
+            if let copy = buffer.deepCopy() {
+                transcriber?.feed(copy)
+            }
+            onActivity(level, Double(buffer.frameLength) / sampleRate)
+        }
+    }
+
+    nonisolated private static func systemTapBlock(
+        paused: ThreadSafeFlag,
+        writer: TrackWriter,
+        transcriber: LiveTranscriber?,
+        onActivity: @escaping @Sendable (Float, Double) -> Void
+    ) -> @Sendable (AVAudioPCMBuffer) -> Void {
+        { @Sendable buffer in
+            guard !paused.value else { return }
+            writer.write(buffer)
+            let level = buffer.rmsLevel()
+            let duration = Double(buffer.frameLength) / buffer.format.sampleRate
+            if let copy = buffer.deepCopy() {
+                transcriber?.feed(copy)
+            }
+            onActivity(level, duration)
         }
     }
 
