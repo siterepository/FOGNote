@@ -88,6 +88,8 @@ final class CallRecorder {
     /// notes mid-call never re-targets the save).
     private(set) var targetNoteUUID: UUID?
     private(set) var targetNoteTitle: String = ""
+    /// Waveform computed from the mix WAV during the last stop().
+    private var lastWaveform: [Float] = []
 
     var isActive: Bool {
         state == .recording || state == .paused
@@ -306,6 +308,8 @@ final class CallRecorder {
             let mp3URL = Recording.recordingsDirectory.appending(path: fileName)
             try await AudioFileMixer.encodeMP3(source: wavURL, destination: mp3URL)
             let duration = AudioFileMixer.duration(of: mp3URL)
+            // Waveform from the PCM wav — cheap here, expensive from MP3 later.
+            lastWaveform = AudioFileMixer.waveform(of: wavURL)
 
             try? FileManager.default.removeItem(at: wavURL)
             if let sessionDir { try? FileManager.default.removeItem(at: sessionDir) }
@@ -352,6 +356,7 @@ final class CallRecorder {
         recording.duration = result.duration
         recording.transcript = transcript
         recording.segments = segments
+        recording.waveform = lastWaveform
         recording.talkSecondsMe = talkMe
         recording.talkSecondsThem = talkThem
         recording.bookmarks = marks

@@ -15,21 +15,24 @@ struct RecordingStudioView: View {
         appState.studioRecording = nil
     }
 
-    @State private var player: AVAudioPlayer?
+    @State private var player: AVPlayer?
+    @State private var timeObserver: Any?
     @State private var isPlaying = false
     @State private var currentTime: Double = 0
     @State private var rate: Float = 1.0
     @State private var waveform: [Float] = []
+    /// Parsed once at open — parsing per render made playback ticks laggy.
+    @State private var segments: [TranscriptSegment] = []
+    @State private var hasExactTimestamps = true
     @State private var selectionIn: Double?
     @State private var selectionOut: Double?
     @State private var busy: String?
-    @State private var timer: Timer?
 
     private var duration: Double { max(recording.duration, 0.1) }
 
     /// Timed segments; older recordings without timestamps get proportional
     /// estimates so click-to-seek still works approximately.
-    private var segments: [TranscriptSegment] {
+    private func buildSegments() -> [TranscriptSegment] {
         let stored = recording.segments
         if !stored.isEmpty { return stored }
         let lines = recording.transcript.split(separator: "\n").map(String.init).filter { !$0.isEmpty }
@@ -202,7 +205,7 @@ struct RecordingStudioView: View {
             .pickerStyle(.menu)
             .labelsHidden()
             .fixedSize()
-            .onChange(of: rate) { player?.rate = rate }
+            .onChange(of: rate) { if isPlaying { player?.rate = rate } }
         }
         .buttonStyle(.plain)
     }
@@ -273,7 +276,7 @@ struct RecordingStudioView: View {
                 ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 2) {
-                            if recording.segments.isEmpty {
+                            if !hasExactTimestamps {
                                 Text("Older recording — timestamps are estimated.")
                                     .font(.caption2)
                                     .foregroundStyle(.tertiary)
@@ -329,30 +332,51 @@ struct RecordingStudioView: View {
         .help("Jump to \(timeString(segment.start))")
     }
 
-    // MARK: - Player plumbing
+    // MARK: - Player plumbing (AVPlayer: instant start, fast seeks,
+    // pitch-corrected speed — no full-file scan like AVAudioPlayer)
 
     private func setUp() {
-        player = try? AVAudioPlayer(contentsOf: recording.fileURL)
-        player?.enableRate = true
-        player?.rate = rate
-        player?.prepareToPlay()
-        timer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { _ in
+        segments = buildSegments()
+        hasExactTimestamps = !recording.segments.isEmpty
+
+        let item = AVPlayerItem(url: recording.fileURL)
+        item.audioTimePitchAlgorithm = .spectral
+        let avPlayer = AVPlayer(playerItem: item)
+        avPlayer.automaticallyWaitsToMinimizeStalling = false
+        player = avPlayer
+        timeObserver = avPlayer.addPeriodicTimeObserver(
+            forInterval: CMTime(seconds: 0.25, preferredTimescale: 600),
+            queue: .main
+        ) { time in
             Task { @MainActor in
-                guard let player else { return }
-                currentTime = player.currentTime
-                if isPlaying && !player.isPlaying { isPlaying = false }
+                currentTime = time.seconds
+                if isPlaying && avPlayer.rate == 0 { isPlaying = false }
             }
         }
-        Task.detached(priority: .userInitiated) { [url = recording.fileURL] in
-            let wave = AudioFileMixer.waveform(of: url)
-            await MainActor.run { waveform = wave }
+
+        // Waveform: cached on the model after first computation.
+        let cached = recording.waveform
+        if !cached.isEmpty {
+            waveform = cached
+        } else {
+            Task.detached(priority: .userInitiated) { [url = recording.fileURL] in
+                let wave = AudioFileMixer.waveform(of: url)
+                await MainActor.run {
+                    waveform = wave
+                    recording.waveform = wave
+                    try? context.save()
+                }
+            }
         }
     }
 
     private func tearDown() {
-        timer?.invalidate()
-        timer = nil
-        player?.stop()
+        if let timeObserver, let player {
+            player.removeTimeObserver(timeObserver)
+        }
+        timeObserver = nil
+        player?.pause()
+        player = nil
     }
 
     private func togglePlay() {
@@ -360,17 +384,19 @@ struct RecordingStudioView: View {
         if isPlaying {
             player.pause()
         } else {
-            player.enableRate = true
             player.rate = rate
-            player.play()
         }
         isPlaying.toggle()
     }
 
     private func seek(to time: Double) {
         let clamped = min(max(0, time), duration - 0.05)
-        player?.currentTime = clamped
         currentTime = clamped
+        player?.seek(
+            to: CMTime(seconds: clamped, preferredTimescale: 600),
+            toleranceBefore: .init(seconds: 0.2, preferredTimescale: 600),
+            toleranceAfter: .init(seconds: 0.2, preferredTimescale: 600)
+        )
     }
 
     // MARK: - Trim actions
@@ -392,7 +418,7 @@ struct RecordingStudioView: View {
         guard outPoint > inPoint else { return }
         busy = asNew ? "Exporting…" : "Trimming…"
         defer { busy = nil }
-        player?.stop()
+        player?.pause()
         isPlaying = false
 
         let fileName = "\(asNew ? "Clip" : "Trim") \(Date.now.formatted(.dateTime.month().day().hour().minute().second())).mp3"
@@ -420,9 +446,12 @@ struct RecordingStudioView: View {
                 recording.bookmarks = recording.bookmarks
                     .filter { $0 >= inPoint && $0 <= outPoint }
                     .map { $0 - inPoint }
+                recording.waveform = []
                 try? context.save()
                 selectionIn = nil
                 selectionOut = nil
+                waveform = []
+                tearDown()
                 setUp()
                 seek(to: 0)
             }

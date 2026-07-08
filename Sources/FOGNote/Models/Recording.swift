@@ -30,6 +30,9 @@ final class Recording {
     var bookmarks: [Double] = []
     /// Timed transcript segments (JSON-encoded [TranscriptSegment]).
     var segmentsData: Data = Data()
+    /// Cached waveform envelope (Float32 array bytes) so the Studio never
+    /// re-decodes hours of audio just to draw the wave.
+    var waveformData: Data = Data()
     var capturedSystemAudio: Bool = false
     var note: Note?
 
@@ -51,6 +54,17 @@ final class Recording {
     var segments: [TranscriptSegment] {
         get { (try? JSONDecoder().decode([TranscriptSegment].self, from: segmentsData)) ?? [] }
         set { segmentsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
+
+    var waveform: [Float] {
+        get {
+            waveformData.withUnsafeBytes { raw in
+                Array(raw.bindMemory(to: Float.self))
+            }
+        }
+        set {
+            waveformData = newValue.withUnsafeBufferPointer { Data(buffer: $0) }
+        }
     }
 
     static var recordingsDirectory: URL {

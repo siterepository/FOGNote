@@ -196,3 +196,13 @@ import AVFoundation
         #expect(decoded[1].speaker == "Them" && abs(decoded[1].start - 3.2) < 0.001)
     }
 }
+
+@MainActor @Suite struct WaveformCacheTests {
+    @Test func waveformRoundTripsThroughModel() {
+        let recording = Recording(title: "w", fileName: "w.mp3")
+        let wave: [Float] = [0.1, 0.5, 1.0, 0.25]
+        recording.waveform = wave
+        #expect(recording.waveform == wave)
+        #expect(recording.waveformData.count == wave.count * 4)
+    }
+}

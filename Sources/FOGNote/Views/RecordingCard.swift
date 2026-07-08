@@ -72,7 +72,7 @@ struct RecordingCard: View {
     @Environment(\.modelContext) private var context
     @Bindable var recording: Recording
     @Environment(AppState.self) private var appState
-    @State private var player: AVAudioPlayer?
+    @State private var player: AVPlayer?
     @State private var isPlaying = false
     @State private var showTranscript = false
     @State private var busy: String?
@@ -167,7 +167,7 @@ struct RecordingCard: View {
     private var actions: some View {
         HStack(spacing: 8) {
             Button {
-                player?.stop()
+                player?.pause()
                 isPlaying = false
                 appState.studioRecording = recording
             } label: {
@@ -218,7 +218,7 @@ struct RecordingCard: View {
                 .disabled(recording.summary.isEmpty)
                 Divider()
                 Button("Delete Recording", role: .destructive) {
-                    player?.stop()
+                    player?.pause()
                     try? FileManager.default.removeItem(at: recording.fileURL)
                     context.delete(recording)
                 }
@@ -239,17 +239,17 @@ struct RecordingCard: View {
             return
         }
         if player == nil {
-            player = try? AVAudioPlayer(contentsOf: recording.fileURL)
+            player = AVPlayer(url: recording.fileURL)
         }
         player?.play()
-        isPlaying = player?.isPlaying ?? false
+        isPlaying = true
     }
 
     private func seek(to seconds: Double) {
         if player == nil {
-            player = try? AVAudioPlayer(contentsOf: recording.fileURL)
+            player = AVPlayer(url: recording.fileURL)
         }
-        player?.currentTime = seconds
+        player?.seek(to: CMTime(seconds: seconds, preferredTimescale: 600))
         player?.play()
         isPlaying = true
     }

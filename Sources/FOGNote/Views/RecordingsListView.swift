@@ -10,7 +10,7 @@ struct RecordingsListView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
     @State private var playingID: PersistentIdentifier?
-    @State private var player: AVAudioPlayer?
+    @State private var player: AVPlayer?
 
     var body: some View {
         Group {
@@ -25,7 +25,7 @@ struct RecordingsListView: View {
                     row(recording)
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            player?.stop()
+                            player?.pause()
                             playingID = nil
                             appState.studioRecording = recording
                         }
@@ -36,7 +36,7 @@ struct RecordingsListView: View {
                                 NSWorkspace.shared.activateFileViewerSelecting([recording.fileURL])
                             }
                             Button("Delete Recording", role: .destructive) {
-                                if playingID == recording.persistentModelID { player?.stop() }
+                                if playingID == recording.persistentModelID { player?.pause() }
                                 try? FileManager.default.removeItem(at: recording.fileURL)
                                 context.delete(recording)
                             }
@@ -105,8 +105,8 @@ struct RecordingsListView: View {
             playingID = nil
             return
         }
-        player?.stop()
-        player = try? AVAudioPlayer(contentsOf: recording.fileURL)
+        player?.pause()
+        player = AVPlayer(url: recording.fileURL)
         player?.play()
         playingID = recording.persistentModelID
     }
