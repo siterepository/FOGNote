@@ -98,6 +98,8 @@ final class Attachment {
     var contentType: String = ""
     @Attribute(.externalStorage) var data: Data = Data()
     var createdAt: Date = Date.now
+    /// Text recognized inside image attachments (Vision OCR); searchable.
+    var ocrText: String = ""
     var note: Note?
 
     init(fileName: String, contentType: String, data: Data) {
@@ -124,6 +126,23 @@ final class NoteVersion {
         self.bodyData = note.bodyData
         self.bodyPlainText = note.bodyPlainText
         self.note = note
+    }
+}
+
+// MARK: - Snippet (text expansion / objection responses)
+
+@Model
+final class Snippet {
+    var id: UUID = UUID()
+    var name: String = ""
+    var content: String = ""
+    var category: String = "General"
+    var createdAt: Date = Date.now
+
+    init(name: String, content: String, category: String = "General") {
+        self.name = name
+        self.content = content
+        self.category = category
     }
 }
 

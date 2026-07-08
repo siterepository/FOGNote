@@ -19,6 +19,9 @@ struct SidebarView: View {
         notebooks.filter { $0.stack == nil }
     }
 
+    @State private var calendar = CalendarService.shared
+    @AppStorage("showTodayMeetings") private var showTodayMeetings = true
+
     var body: some View {
         @Bindable var appState = appState
         List(selection: $appState.sidebarSelection) {
@@ -27,6 +30,25 @@ struct SidebarView: View {
                 Label("Pinned", systemImage: "pin").tag(SidebarItem.pinned)
                 Label("Tasks", systemImage: "checkmark.circle").tag(SidebarItem.tasks)
                 Label("Templates", systemImage: "doc.text.image").tag(SidebarItem.templates)
+            }
+
+            if showTodayMeetings && !calendar.todaysMeetings.isEmpty {
+                Section("Today's Meetings") {
+                    ForEach(calendar.todaysMeetings) { meeting in
+                        Button {
+                            createPrepNote(for: meeting)
+                        } label: {
+                            HStack {
+                                Text(meeting.start.formatted(date: .omitted, time: .shortened))
+                                    .font(.caption.monospacedDigit())
+                                    .foregroundStyle(Color.fogAccent)
+                                Text(meeting.title).lineLimit(1)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Create a prep note for this meeting")
+                    }
+                }
             }
 
             Section("Notebooks") {
@@ -82,6 +104,7 @@ struct SidebarView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("FOGNote")
+        .task { await calendar.refresh() }
         .toolbar {
             ToolbarItem {
                 Menu {
@@ -128,6 +151,21 @@ struct SidebarView: View {
                     context.delete(nb)
                 }
             }
+    }
+
+    private func createPrepNote(for meeting: CalendarService.Meeting) {
+        let note = Note(title: meeting.title)
+        let body = calendar.prepNoteBody(for: meeting)
+        var attr = AttributedString(body)
+        attr.font = .system(size: 14)
+        note.bodyData = attr.rtfData()
+        note.bodyPlainText = body
+        note.reminderDate = meeting.start.addingTimeInterval(-300)
+        context.insert(note)
+        try? context.save()
+        NotificationService.sync(note: note)
+        appState.sidebarSelection = .allNotes
+        appState.selectedNoteID = note.persistentModelID
     }
 
     private func rename(notebook: Notebook) {

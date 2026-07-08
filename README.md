@@ -44,6 +44,18 @@ A native, local-first note-taking app for macOS — the organizational power of 
 
 ![Call recording](docs/screenshot-recording.png)
 
+**Power Pack (v1.1)**
+- **OCR search** — text inside image attachments (receipts, whiteboards, screenshots) is recognized on-device and searchable
+- **Quick Capture** — ⌃⌥N from *any* app opens a floating capture panel; menu-bar icon with shortcuts
+- **Prospect Hub** — select a notebook or tag → one activity timeline of every note, call, summary, and open action item, with one-click CRM deal-sheet export
+- **Today's Meetings** — calendar events in the sidebar; click one for a pre-filled prep note (+ reminder 5 min before)
+- **Real reminder notifications** — macOS notifications when note reminders come due
+- **Daily notes** — ⌘D opens today's note; templates support `{{date}}`, `{{time}}`, `{{weekday}}`, `{{clipboard}}`
+- **Sales Library** — reusable snippets (insert from editor toolbar) + an objection library mined automatically from every AI call summary
+- **Encrypted backup** — AES-256 one-file backup/restore of all notes + recordings (Settings)
+- **Insights dashboard** — calls/week, talk-ratio trend vs the 43% benchmark, call scores (⌘⌥1)
+- **Note Graph** — Obsidian-style visual map of your `[[note links]]` (⌘⌥3)
+
 **FOGNote extras**
 - `[[Note Title]]` wiki-style note links with backlinks panel (Note Info)
 - Word/character counts, created/edited timestamps

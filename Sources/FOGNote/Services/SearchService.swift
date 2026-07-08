@@ -38,6 +38,8 @@ enum SearchService {
         return note.title.lowercased().contains(lower)
             || note.bodyPlainText.lowercased().contains(lower)
             || note.tags.contains { $0.name.lowercased().contains(lower) }
+            || note.attachments.contains { $0.ocrText.lowercased().contains(lower) }
+            || note.recordings.contains { $0.transcript.lowercased().contains(lower) }
     }
 
     private static func value(of prefix: String, in token: String) -> String? {

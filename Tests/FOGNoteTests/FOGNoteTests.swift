@@ -113,3 +113,28 @@ import AVFoundation
         #expect(abs(recording.talkRatioMe - 0.3) < 0.001)
     }
 }
+
+@MainActor @Suite struct PowerPackTests {
+    @Test func templateVariablesExpand() {
+        let out = TemplateEngine.expand("Call on {{shortdate}} at {{time}}")
+        #expect(!out.contains("{{shortdate}}") && !out.contains("{{time}}"))
+    }
+
+    @Test func objectionParsing() {
+        let summary = """
+        **Objections & Concerns**
+        - Price too high — offered annual discount
+        - Timing: budget locked until Q3
+
+        **Next Steps:** demo Friday
+        """
+        let lines = ObjectionsTab.objectionLines(in: summary)
+        #expect(lines.count == 2)
+        #expect(lines[0].hasPrefix("Price too high"))
+    }
+
+    @Test func insightsScoreParsing() {
+        #expect(InsightsView.score(from: "- Call score: 87/100") == 87)
+        #expect(InsightsView.score(from: "no score here") == nil)
+    }
+}

@@ -4,6 +4,7 @@ import SwiftData
 struct ContentView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.modelContext) private var context
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var appState = appState
@@ -28,5 +29,18 @@ struct ContentView: View {
         }
         .searchable(text: $appState.searchText, placement: .sidebar, prompt: "Search notes, tag:name…")
         .frame(minWidth: 940, minHeight: 560)
+        .task { NotificationService.syncAll(context: context) }
+        .task {
+            let args = ProcessInfo.processInfo.arguments
+            for id in ["insights", "library", "graph", "about"] where args.contains("--uitest-\(id)") {
+                openWindow(id: id)
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .fogSelectNote)) { notification in
+            if let id = notification.object as? PersistentIdentifier {
+                appState.sidebarSelection = .allNotes
+                appState.selectedNoteID = id
+            }
+        }
     }
 }

@@ -1,9 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#8FB6DF"/>
-      <stop offset="0.55" stop-color="#6B9FD4"/>
-      <stop offset="1" stop-color="#4F7FB4"/>
+      <stop offset="0" stop-color="#A7C6E8"/>
+      <stop offset="0.45" stop-color="#6B9FD4"/>
+      <stop offset="1" stop-color="#3E689A"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.32" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.06"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="pageShadow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1E3A5C" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#1E3A5C" stop-opacity="0"/>
     </linearGradient>
     <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
@@ -18,6 +27,10 @@
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#sky)"/>
 
   <g clip-path="url(#squircle)">
+    <rect x="64" y="64" width="896" height="896" fill="url(#glow)"/>
+    <!-- page drop shadow -->
+    <path d="M312 262 h300 l100 100 v420 a24 24 0 0 1 -24 24 h-376 a24 24 0 0 1 -24 -24 v-496 a24 24 0 0 1 24 -24 z"
+          fill="url(#pageShadow)" transform="translate(0,14)"/>
     <!-- note page with folded corner -->
     <path d="M312 240
              h300

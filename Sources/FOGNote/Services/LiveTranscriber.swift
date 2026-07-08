@@ -23,9 +23,11 @@ final class LiveTranscriber {
         self.speaker = speaker
     }
 
-    static func requestAuthorization() async -> Bool {
+    nonisolated static func requestAuthorization() async -> Bool {
         await withCheckedContinuation { continuation in
-            SFSpeechRecognizer.requestAuthorization { status in
+            // @Sendable stops MainActor inference: TCC invokes this on a
+            // background queue, and an isolated closure would SIGTRAP there.
+            SFSpeechRecognizer.requestAuthorization { @Sendable status in
                 continuation.resume(returning: status == .authorized)
             }
         }
