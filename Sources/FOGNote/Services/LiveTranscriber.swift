@@ -15,9 +15,10 @@ final class LiveTranscriber {
     private var analyzerFormat: AVAudioFormat?
     private var tasks: [Task<Void, Never>] = []
 
-    /// (speaker, text, isFinal) — volatile text replaces the previous volatile
-    /// text for this speaker; final text should be appended.
-    var onSegment: (@MainActor (String, String, Bool) -> Void)?
+    /// (speaker, text, isFinal, startSeconds) — volatile text replaces the
+    /// previous volatile text for this speaker; final text should be appended.
+    /// startSeconds is the segment's offset from the start of the audio feed.
+    var onSegment: (@MainActor (String, String, Bool, Double) -> Void)?
 
     init(speaker: String) {
         self.speaker = speaker
@@ -103,8 +104,9 @@ final class LiveTranscriber {
             do {
                 for try await result in transcriber.results {
                     let text = String(result.text.characters)
+                    let start = result.range.start.seconds
                     await MainActor.run {
-                        self?.onSegment?(speaker, text, result.isFinal)
+                        self?.onSegment?(speaker, text, result.isFinal, start.isFinite ? max(0, start) : 0)
                     }
                 }
             } catch {

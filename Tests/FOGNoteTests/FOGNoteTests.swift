@@ -138,3 +138,61 @@ import AVFoundation
         #expect(InsightsView.score(from: "no score here") == nil)
     }
 }
+
+@MainActor @Suite struct StudioTests {
+    @Test func excerptTrimsToRange() async throws {
+        // 3s of 440Hz -> trim middle 1s
+        let format = AudioFileMixer.workFormat
+        let src = FileManager.default.temporaryDirectory.appending(path: "trim-src-\(UUID().uuidString).wav")
+        do {
+            let file = try AVAudioFile(forWriting: src, settings: format.settings)
+            let frames = AVAudioFrameCount(3 * format.sampleRate)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+            buffer.frameLength = frames
+            for ch in 0..<2 {
+                for i in 0..<Int(frames) {
+                    buffer.floatChannelData![ch][i] = Float(sin(2.0 * .pi * 440 * Double(i) / format.sampleRate)) * 0.3
+                }
+            }
+            try file.write(from: buffer)
+        }
+        let out = FileManager.default.temporaryDirectory.appending(path: "trim-out-\(UUID().uuidString).mp3")
+        try await AudioFileMixer.excerpt(source: src, from: 1.0, to: 2.0, toMP3: out)
+        let dur = AudioFileMixer.duration(of: out)
+        #expect(abs(dur - 1.0) < 0.15)
+        try? FileManager.default.removeItem(at: src)
+        try? FileManager.default.removeItem(at: out)
+    }
+
+    @Test func waveformNormalized() throws {
+        let format = AudioFileMixer.workFormat
+        let src = FileManager.default.temporaryDirectory.appending(path: "wave-\(UUID().uuidString).wav")
+        do {
+            let file = try AVAudioFile(forWriting: src, settings: format.settings)
+            let frames = AVAudioFrameCount(format.sampleRate)
+            let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frames)!
+            buffer.frameLength = frames
+            for ch in 0..<2 {
+                for i in 0..<Int(frames) {
+                    buffer.floatChannelData![ch][i] = Float(sin(2.0 * .pi * 220 * Double(i) / format.sampleRate)) * 0.5
+                }
+            }
+            try file.write(from: buffer)
+        }
+        let wave = AudioFileMixer.waveform(of: src, buckets: 100)
+        #expect(wave.count > 50)
+        #expect(abs((wave.max() ?? 0) - 1.0) < 0.001)
+        try? FileManager.default.removeItem(at: src)
+    }
+
+    @Test func segmentsRoundTrip() {
+        let recording = Recording(title: "t", fileName: "t.mp3")
+        recording.segments = [
+            TranscriptSegment(speaker: "Me", text: "hello", start: 1.5),
+            TranscriptSegment(speaker: "Them", text: "hi", start: 3.2)
+        ]
+        let decoded = recording.segments
+        #expect(decoded.count == 2)
+        #expect(decoded[1].speaker == "Them" && abs(decoded[1].start - 3.2) < 0.001)
+    }
+}

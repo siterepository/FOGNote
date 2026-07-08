@@ -1,6 +1,15 @@
 import Foundation
 import SwiftData
 
+/// One timed line of a call transcript.
+struct TranscriptSegment: Codable, Identifiable, Equatable {
+    var id = UUID()
+    var speaker: String
+    var text: String
+    /// Seconds from the start of the recording.
+    var start: Double
+}
+
 /// A call/voice recording attached to a note. Audio lives on disk in
 /// Application Support/FOGNote/Recordings; the model stores the file name.
 @Model
@@ -19,6 +28,8 @@ final class Recording {
     var talkSecondsThem: Double = 0
     /// Timestamps (seconds) the user bookmarked during the call.
     var bookmarks: [Double] = []
+    /// Timed transcript segments (JSON-encoded [TranscriptSegment]).
+    var segmentsData: Data = Data()
     var capturedSystemAudio: Bool = false
     var note: Note?
 
@@ -35,6 +46,11 @@ final class Recording {
         let total = talkSecondsMe + talkSecondsThem
         guard total > 0 else { return 0 }
         return talkSecondsMe / total
+    }
+
+    var segments: [TranscriptSegment] {
+        get { (try? JSONDecoder().decode([TranscriptSegment].self, from: segmentsData)) ?? [] }
+        set { segmentsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
     }
 
     static var recordingsDirectory: URL {

@@ -74,6 +74,7 @@ struct RecordingCard: View {
     @State private var player: AVAudioPlayer?
     @State private var isPlaying = false
     @State private var showTranscript = false
+    @State private var showStudio = false
     @State private var busy: String?
 
     var body: some View {
@@ -165,6 +166,20 @@ struct RecordingCard: View {
 
     private var actions: some View {
         HStack(spacing: 8) {
+            Button {
+                player?.stop()
+                isPlaying = false
+                showStudio = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Open in Studio — scrub, trim, clickable transcript")
+            .sheet(isPresented: $showStudio) {
+                RecordingStudioView(recording: recording)
+            }
+
             Menu {
                 Button(recording.summary.isEmpty ? "Generate AI Summary" : "Regenerate AI Summary") {
                     Task { await summarize() }

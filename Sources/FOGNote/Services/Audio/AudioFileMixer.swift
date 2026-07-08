@@ -144,4 +144,59 @@ enum AudioFileMixer {
         guard let file = try? AVAudioFile(forReading: url) else { return 0 }
         return Double(file.length) / file.processingFormat.sampleRate
     }
+
+    /// Downsampled amplitude envelope for waveform display.
+    static func waveform(of url: URL, buckets: Int = 400) -> [Float] {
+        guard let file = try? AVAudioFile(forReading: url), file.length > 0 else { return [] }
+        let framesPerBucket = max(1, Int(file.length) / buckets)
+        var result: [Float] = []
+        result.reserveCapacity(buckets)
+        let format = file.processingFormat
+        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(framesPerBucket)) else { return [] }
+        while result.count < buckets {
+            do { try file.read(into: buffer, frameCount: AVAudioFrameCount(framesPerBucket)) } catch { break }
+            guard buffer.frameLength > 0, let data = buffer.floatChannelData else { break }
+            var peak: Float = 0
+            for i in 0..<Int(buffer.frameLength) {
+                peak = max(peak, abs(data[0][i]))
+            }
+            result.append(peak)
+        }
+        let maxPeak = result.max() ?? 1
+        return maxPeak > 0 ? result.map { $0 / maxPeak } : result
+    }
+
+    /// Export a time range of an audio file as a new MP3 (trim/excerpt).
+    static func excerpt(source: URL, from start: TimeInterval, to end: TimeInterval, toMP3 mp3URL: URL) async throws {
+        let wavURL = FileManager.default.temporaryDirectory
+            .appending(path: "fognote-trim-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: wavURL) }
+
+        do {
+            guard let reader = ChunkReader(url: source) else {
+                throw NSError(domain: "FOGNote", code: 11, userInfo: [NSLocalizedDescriptionKey: "Can't read audio file."])
+            }
+            let writer = try makeWAVWriter(url: wavURL)
+            let sampleRate = workFormat.sampleRate
+            let startFrame = Int(start * sampleRate)
+            let endFrame = Int(end * sampleRate)
+            var position = 0
+            while position < endFrame, let chunk = reader.next() {
+                let chunkStart = position
+                let chunkEnd = position + Int(chunk.frameLength)
+                position = chunkEnd
+                if chunkEnd <= startFrame { continue }
+                let sliceFrom = max(0, startFrame - chunkStart)
+                let sliceTo = min(Int(chunk.frameLength), endFrame - chunkStart)
+                guard sliceTo > sliceFrom,
+                      let out = AVAudioPCMBuffer(pcmFormat: workFormat, frameCapacity: AVAudioFrameCount(sliceTo - sliceFrom)) else { continue }
+                out.frameLength = AVAudioFrameCount(sliceTo - sliceFrom)
+                for channel in 0..<2 {
+                    out.floatChannelData![channel].update(from: chunk.floatChannelData![channel] + sliceFrom, count: sliceTo - sliceFrom)
+                }
+                try writer.write(from: out)
+            }
+        }
+        try await encodeMP3(source: wavURL, destination: mp3URL)
+    }
 }

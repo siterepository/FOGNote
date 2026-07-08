@@ -11,6 +11,7 @@ struct RecordingsListView: View {
     @Query(sort: \Recording.createdAt, order: .reverse) private var recordings: [Recording]
     @State private var playingID: PersistentIdentifier?
     @State private var player: AVAudioPlayer?
+    @State private var studioRecording: Recording?
 
     var body: some View {
         Group {
@@ -24,8 +25,13 @@ struct RecordingsListView: View {
                 List(recordings, id: \.persistentModelID) { recording in
                     row(recording)
                         .contentShape(Rectangle())
-                        .onTapGesture { open(recording) }
+                        .onTapGesture {
+                            player?.stop()
+                            playingID = nil
+                            studioRecording = recording
+                        }
                         .contextMenu {
+                            Button("Open in Studio") { studioRecording = recording }
                             Button("Open Note") { open(recording) }
                             Button("Show in Finder") {
                                 NSWorkspace.shared.activateFileViewerSelecting([recording.fileURL])
@@ -42,6 +48,14 @@ struct RecordingsListView: View {
         }
         .navigationTitle("Recordings")
         .navigationSubtitle("\(recordings.count) recording\(recordings.count == 1 ? "" : "s")")
+        .sheet(item: $studioRecording) { recording in
+            RecordingStudioView(recording: recording)
+        }
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("--uitest-studio") {
+                studioRecording = recordings.first
+            }
+        }
     }
 
     private func row(_ recording: Recording) -> some View {

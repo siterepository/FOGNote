@@ -52,6 +52,7 @@ final class CallRecorder {
         var speaker: String
         var text: String
         var isFinal: Bool
+        var start: Double = 0
     }
 
     private(set) var state: State = .idle
@@ -135,8 +136,8 @@ final class CallRecorder {
                 let authorized = await LiveTranscriber.requestAuthorization()
                 if authorized {
                     let mic = LiveTranscriber(speaker: "Me")
-                    mic.onSegment = { [weak self] speaker, text, isFinal in
-                        self?.appendSegment(speaker: speaker, text: text, isFinal: isFinal)
+                    mic.onSegment = { [weak self] speaker, text, isFinal, start in
+                        self?.appendSegment(speaker: speaker, text: text, isFinal: isFinal, start: start)
                     }
                     try? await mic.start(sourceFormat: micFormat)
                     micTranscriber = mic
@@ -175,8 +176,8 @@ final class CallRecorder {
 
                     if liveTranscription {
                         let sys = LiveTranscriber(speaker: "Them")
-                        sys.onSegment = { [weak self] speaker, text, isFinal in
-                            self?.appendSegment(speaker: speaker, text: text, isFinal: isFinal)
+                        sys.onSegment = { [weak self] speaker, text, isFinal, start in
+                            self?.appendSegment(speaker: speaker, text: text, isFinal: isFinal, start: start)
                         }
                         try? await sys.start(sourceFormat: tapFormat)
                         systemTranscriber = sys
@@ -324,6 +325,7 @@ final class CallRecorder {
     /// termination, and anything else that ends a call.
     @discardableResult
     func finishAndSave() async -> Recording? {
+        let segments = timedSegments
         let transcript = transcriptText
         let talkMe = talkSecondsMe
         let talkThem = talkSecondsThem
@@ -349,6 +351,7 @@ final class CallRecorder {
         )
         recording.duration = result.duration
         recording.transcript = transcript
+        recording.segments = segments
         recording.talkSecondsMe = talkMe
         recording.talkSecondsThem = talkThem
         recording.bookmarks = marks
@@ -462,19 +465,24 @@ final class CallRecorder {
         isPausedFlag.value = false
     }
 
-    private func appendSegment(speaker: String, text: String, isFinal: Bool) {
+    private func appendSegment(speaker: String, text: String, isFinal: Bool, start: Double) {
         guard !text.isEmpty else { return }
         if let index = transcriptLines.lastIndex(where: { $0.speaker == speaker && !$0.isFinal }) {
-            if isFinal {
-                transcriptLines[index].text = text
-                transcriptLines[index].isFinal = true
-            } else {
-                transcriptLines[index].text = text
-            }
+            transcriptLines[index].text = text
+            transcriptLines[index].isFinal = isFinal
+            transcriptLines[index].start = start
         } else {
-            transcriptLines.append(TranscriptLine(speaker: speaker, text: text, isFinal: isFinal))
+            transcriptLines.append(TranscriptLine(speaker: speaker, text: text, isFinal: isFinal, start: start))
         }
         if isFinal { flushTranscript() }
+    }
+
+    /// Final, timed segments in spoken order (both speakers interleaved).
+    var timedSegments: [TranscriptSegment] {
+        transcriptLines
+            .filter { $0.isFinal }
+            .sorted { $0.start < $1.start }
+            .map { TranscriptSegment(speaker: $0.speaker, text: $0.text, start: $0.start) }
     }
 
     private static let voiceThreshold: Float = 0.01
