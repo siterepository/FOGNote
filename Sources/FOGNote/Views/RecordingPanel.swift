@@ -84,7 +84,7 @@ struct RecordingPanel: View {
                 }
             }
             Button {
-                Task { await recorder.start() }
+                Task { await recorder.start(note: note) }
             } label: {
                 Label("Start Recording", systemImage: "record.circle")
                     .frame(maxWidth: .infinity)
@@ -103,6 +103,12 @@ struct RecordingPanel: View {
 
     private var liveView: some View {
         VStack(spacing: 10) {
+            if let target = recorder.targetNoteUUID, target != note.id {
+                Label("Recording into “\(recorder.targetNoteTitle.isEmpty ? "another note" : recorder.targetNoteTitle)” — keeps going while you browse.", systemImage: "dot.radiowaves.left.and.right")
+                    .font(.caption)
+                    .foregroundStyle(Color.fogWarn)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             VStack(spacing: 6) {
                 HStack(spacing: 12) {
                     meter(label: "Me", level: recorder.micLevel, color: Color.fogAccent)
@@ -209,34 +215,13 @@ struct RecordingPanel: View {
     }
 
     private func finishRecording() async {
-        let bookmarks = recorder.bookmarks
-        let transcript = recorder.transcriptText
-        let talkMe = recorder.talkSecondsMe
-        let talkThem = recorder.talkSecondsThem
-        let capturedSystem = recorder.captureSystemAudio
-
-        guard let result = await recorder.stop() else {
+        guard let recording = await recorder.finishAndSave() else {
             if case .failed = recorder.state {} else { isPresented = false }
             return
         }
-
-        let recording = Recording(
-            title: "Call — \(Date.now.formatted(date: .abbreviated, time: .shortened))",
-            fileName: result.fileName
-        )
-        recording.duration = result.duration
-        recording.transcript = transcript
-        recording.talkSecondsMe = talkMe
-        recording.talkSecondsThem = talkThem
-        recording.bookmarks = bookmarks
-        recording.capturedSystemAudio = capturedSystem
-        recording.note = note
-        context.insert(recording)
-        note.modifiedAt = .now
-        try? context.save()
         isPresented = false
 
-        if autoSummarize && !transcript.isEmpty {
+        if autoSummarize && !recording.transcript.isEmpty {
             let summary = (try? await SummaryService.summarize(recording: recording)) ?? ""
             if !summary.isEmpty {
                 recording.summary = summary

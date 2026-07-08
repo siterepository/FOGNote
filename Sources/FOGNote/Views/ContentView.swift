@@ -14,8 +14,13 @@ struct ContentView: View {
             SidebarView()
                 .navigationSplitViewColumnWidth(min: 200, ideal: 230)
         } content: {
-            NoteListView()
-                .navigationSplitViewColumnWidth(min: 260, ideal: 320)
+            if appState.sidebarSelection == .recordings {
+                RecordingsListView()
+                    .navigationSplitViewColumnWidth(min: 260, ideal: 320)
+            } else {
+                NoteListView()
+                    .navigationSplitViewColumnWidth(min: 260, ideal: 320)
+            }
         } detail: {
             if let noteID = appState.selectedNoteID,
                let note = context.registeredModel(for: noteID) as Note? {
@@ -36,6 +41,9 @@ struct ContentView: View {
             let args = ProcessInfo.processInfo.arguments
             for id in ["insights", "library", "graph", "about"] where args.contains("--uitest-\(id)") {
                 openWindow(id: id)
+            }
+            if args.contains("--uitest-recordings") {
+                appState.sidebarSelection = .recordings
             }
             if args.contains("--uitest-record") {
                 await Self.runRecordSmokeTest()

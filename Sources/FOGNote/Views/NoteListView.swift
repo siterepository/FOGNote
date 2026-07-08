@@ -129,7 +129,7 @@ struct NoteListView: View {
                 query = saved.query
             }
             notes = allNotes.filter { !$0.isTrashed && !$0.isTemplate }
-        case .allNotes, nil:
+        case .allNotes, .recordings, nil:
             notes = allNotes.filter { !$0.isTrashed && !$0.isTemplate }
         }
 
@@ -149,7 +149,7 @@ struct NoteListView: View {
 
     private var listTitle: String {
         switch appState.sidebarSelection {
-        case .allNotes, nil: "All Notes"
+        case .allNotes, .recordings, nil: "All Notes"
         case .pinned: "Pinned"
         case .tasks: "Tasks"
         case .templates: "Templates"

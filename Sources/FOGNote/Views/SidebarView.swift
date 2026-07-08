@@ -30,6 +30,7 @@ struct SidebarView: View {
                 Label("Pinned", systemImage: "pin").tag(SidebarItem.pinned)
                 Label("Tasks", systemImage: "checkmark.circle").tag(SidebarItem.tasks)
                 Label("Templates", systemImage: "doc.text.image").tag(SidebarItem.templates)
+                Label("Recordings", systemImage: "waveform.circle").tag(SidebarItem.recordings)
             }
 
             if showTodayMeetings && !calendar.todaysMeetings.isEmpty {

@@ -18,7 +18,7 @@ struct NoteDetailView: View {
     @State private var showReminder = false
     @State private var showAttachmentImporter = false
     @State private var saveTask: Task<Void, Never>?
-    @State private var recorder = CallRecorder()
+    private var recorder: CallRecorder { .shared }
     @State private var showRecorder = false
 
     var body: some View {
@@ -36,7 +36,8 @@ struct NoteDetailView: View {
         }
         .onAppear {
             loadNote()
-            if ProcessInfo.processInfo.arguments.contains("--uitest-recorder") {
+            // Sticky recording: switching notes keeps the panel visible.
+            if recorder.isActive || ProcessInfo.processInfo.arguments.contains("--uitest-recorder") {
                 showRecorder = true
             }
         }

@@ -6,6 +6,7 @@ enum SidebarItem: Hashable {
     case pinned
     case tasks
     case templates
+    case recordings
     case trash
     case notebook(PersistentIdentifier)
     case stack(PersistentIdentifier)
