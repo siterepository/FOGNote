@@ -12,7 +12,7 @@ struct FOGNoteApp: App {
         let storeURL = supportURL.appending(path: "FOGNote.store")
         let schema = Schema([
             Note.self, Notebook.self, Stack.self, Tag.self,
-            Attachment.self, NoteVersion.self, SavedSearch.self, Recording.self
+            Attachment.self, NoteVersion.self, SavedSearch.self, Recording.self, Snippet.self
         ])
         do {
             container = try ModelContainer(
@@ -23,6 +23,12 @@ struct FOGNoteApp: App {
             fatalError("Failed to open FOGNote store: \(error)")
         }
         SeedData.seedIfNeeded(container: container)
+
+        let container = container
+        HotKeyManager.shared.onHotKey = {
+            QuickCapturePanel.shared.toggle(container: container)
+        }
+        HotKeyManager.shared.register()
     }
 
     var body: some Scene {
@@ -34,6 +40,36 @@ struct FOGNoteApp: App {
         .commands {
             FOGNoteCommands(appState: appState)
         }
+
+        Window("Sales Library", id: "library") {
+            LibraryView()
+                .environment(appState)
+        }
+        .modelContainer(container)
+
+        Window("About FOGNote", id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
+
+        Window("Insights", id: "insights") {
+            InsightsView()
+        }
+        .modelContainer(container)
+
+        Window("Note Graph", id: "graph") {
+            GraphViewWindow()
+                .environment(appState)
+        }
+        .modelContainer(container)
+
+        MenuBarExtra {
+            MenuBarContent(container: container)
+                .environment(appState)
+        } label: {
+            Image(systemName: "cloud.fog.fill")
+        }
+        .modelContainer(container)
 
         Settings {
             SettingsView()

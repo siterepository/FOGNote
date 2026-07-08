@@ -117,6 +117,9 @@ struct ReminderEditor: View {
                 displayedComponents: [.date, .hourAndMinute]
             )
             Toggle("Done", isOn: $note.reminderDone)
+            Text("You'll get a macOS notification at this time.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
             Button("Remove Reminder", role: .destructive) {
                 note.reminderDate = nil
                 note.reminderDone = false
@@ -124,6 +127,7 @@ struct ReminderEditor: View {
         }
         .padding(14)
         .frame(width: 260)
+        .onDisappear { NotificationService.sync(note: note) }
     }
 }
 
@@ -162,6 +166,11 @@ struct AttachmentStrip: View {
                 let attachment = Attachment(fileName: url.lastPathComponent, contentType: type, data: data)
                 attachment.note = note
                 context.insert(attachment)
+                if type.hasPrefix("image/") {
+                    Task {
+                        attachment.ocrText = await OCRService.recognizeText(in: data)
+                    }
+                }
             }
         }
     }

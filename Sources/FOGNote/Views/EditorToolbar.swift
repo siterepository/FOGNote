@@ -1,10 +1,13 @@
 import SwiftUI
+import SwiftData
 
 /// Formatting toolbar for the rich-text editor.
 struct EditorToolbar: View {
     @Binding var text: AttributedString
     @Binding var selection: AttributedTextSelection
     var onChecklist: () -> Void
+    @Query(sort: \Snippet.name) private var snippets: [Snippet]
+    @Environment(\.openWindow) private var openWindow
 
     private let sizes: [CGFloat] = [11, 12, 14, 16, 18, 22, 28]
     private let colors: [(String, Color)] = [
@@ -63,6 +66,25 @@ struct EditorToolbar: View {
             formatButton("checklist", help: "Checklist (⌘⇧L)") { onChecklist() }
                 .keyboardShortcut("l", modifiers: [.command, .shift])
             formatButton("list.bullet", help: "Bulleted line") { prefixLine("• ") }
+
+            Divider().frame(height: 16)
+
+            Menu {
+                if snippets.isEmpty {
+                    Button("No snippets yet — open Sales Library") { openWindow(id: "library") }
+                } else {
+                    ForEach(snippets) { snippet in
+                        Button(snippet.name) { insertSnippet(snippet) }
+                    }
+                    Divider()
+                    Button("Manage Snippets…") { openWindow(id: "library") }
+                }
+            } label: {
+                Image(systemName: "text.badge.plus")
+            }
+            .menuStyle(.borderlessButton)
+            .frame(width: 44)
+            .help("Insert snippet")
 
             Spacer()
         }
@@ -138,6 +160,20 @@ struct EditorToolbar: View {
                 container.backgroundColor = nil
             }
         }
+    }
+
+    private func insertSnippet(_ snippet: Snippet) {
+        let content = TemplateEngine.expand(snippet.content)
+        let indices = selection.indices(in: text)
+        let insertAt: AttributedString.Index
+        switch indices {
+        case .insertionPoint(let index):
+            insertAt = index
+        case .ranges(let rangeSet):
+            insertAt = rangeSet.ranges.last?.upperBound ?? text.endIndex
+        }
+        text.characters.insert(contentsOf: content, at: insertAt)
+        selection = AttributedTextSelection()
     }
 
     private func prefixLine(_ prefix: String) {

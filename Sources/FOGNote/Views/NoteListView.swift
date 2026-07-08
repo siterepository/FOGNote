@@ -15,6 +15,7 @@ struct NoteListView: View {
     @AppStorage("noteSortOrder") private var sortOrder: NoteSortOrder = .modified
     @State private var showSaveSearch = false
     @State private var savedSearchName = ""
+    @State private var showHub = false
 
     var body: some View {
         @Bindable var appState = appState
@@ -31,6 +32,17 @@ struct NoteListView: View {
         .navigationSubtitle("\(notes.count) note\(notes.count == 1 ? "" : "s")")
         .toolbar {
             ToolbarItemGroup {
+                if isHubEligible {
+                    Button {
+                        showHub = true
+                    } label: {
+                        Label("Prospect Hub", systemImage: "person.crop.square.filled.and.at.rectangle")
+                    }
+                    .help("Activity timeline, open action items, and deal-sheet export")
+                    .sheet(isPresented: $showHub) {
+                        ProspectHubView(title: listTitle, notes: notes)
+                    }
+                }
                 if !appState.searchText.isEmpty {
                     Button {
                         savedSearchName = appState.searchText
@@ -75,6 +87,13 @@ struct NoteListView: View {
                 appState.requestNewNote = false
                 createNote()
             }
+        }
+    }
+
+    private var isHubEligible: Bool {
+        switch appState.sidebarSelection {
+        case .notebook, .stack, .tag: true
+        default: false
         }
     }
 
@@ -204,11 +223,7 @@ struct NoteListView: View {
     }
 
     private func instantiateTemplate(_ template: Note) {
-        let note = Note(title: template.title, notebook: template.notebook)
-        note.bodyData = template.bodyData
-        note.bodyPlainText = template.bodyPlainText
-        note.tags = template.tags
-        context.insert(note)
+        let note = TemplateEngine.instantiate(template: template, into: context)
         appState.sidebarSelection = .allNotes
         appState.selectedNoteID = note.persistentModelID
     }
