@@ -71,10 +71,10 @@ struct RecordingsSection: View {
 struct RecordingCard: View {
     @Environment(\.modelContext) private var context
     @Bindable var recording: Recording
+    @Environment(AppState.self) private var appState
     @State private var player: AVAudioPlayer?
     @State private var isPlaying = false
     @State private var showTranscript = false
-    @State private var showStudio = false
     @State private var busy: String?
 
     var body: some View {
@@ -169,16 +169,13 @@ struct RecordingCard: View {
             Button {
                 player?.stop()
                 isPlaying = false
-                showStudio = true
+                appState.studioRecording = recording
             } label: {
                 Image(systemName: "slider.horizontal.3")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
             .help("Open in Studio — scrub, trim, clickable transcript")
-            .sheet(isPresented: $showStudio) {
-                RecordingStudioView(recording: recording)
-            }
 
             Menu {
                 Button(recording.summary.isEmpty ? "Generate AI Summary" : "Regenerate AI Summary") {

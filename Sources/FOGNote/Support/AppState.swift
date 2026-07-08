@@ -20,6 +20,8 @@ final class AppState {
     var sidebarSelection: SidebarItem? = .allNotes
     var selectedNoteID: PersistentIdentifier?
     var searchText: String = ""
+    /// Recording open in the right-side Studio pane (nil = closed).
+    var studioRecording: Recording?
     /// Notes unlocked for this app session.
     var unlockedNoteIDs: Set<PersistentIdentifier> = []
     var requestNewNote: Bool = false

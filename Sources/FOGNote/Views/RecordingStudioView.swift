@@ -3,13 +3,17 @@ import SwiftData
 import AVFoundation
 import AppKit
 
-/// Recording Studio: waveform player with scrubbing, skip, speed, in/out trim,
-/// and a timed transcript — click any line to jump the playhead there.
+/// Recording Studio: right-side in-window pane — waveform player with
+/// scrubbing, skip, speed, in/out trim, and a timed transcript where clicking
+/// any line jumps the playhead there.
 struct RecordingStudioView: View {
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
     @Environment(AppState.self) private var appState
     @Bindable var recording: Recording
+
+    private func close() {
+        appState.studioRecording = nil
+    }
 
     @State private var player: AVAudioPlayer?
     @State private var isPlaying = false
@@ -41,16 +45,15 @@ struct RecordingStudioView: View {
         VStack(spacing: 0) {
             header
             Divider()
-            VStack(spacing: 12) {
+            VStack(spacing: 10) {
                 waveformView
                 transport
                 trimBar
             }
-            .padding(16)
+            .padding(12)
             Divider()
             transcriptPane
         }
-        .frame(width: 720, height: 620)
         .onAppear(perform: setUp)
         .onDisappear(perform: tearDown)
     }
@@ -58,9 +61,9 @@ struct RecordingStudioView: View {
     // MARK: - Header
 
     private var header: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .top, spacing: 8) {
             Image(systemName: "waveform.circle.fill")
-                .font(.title2)
+                .font(.title3)
                 .foregroundStyle(Color.fogAccent)
             VStack(alignment: .leading, spacing: 1) {
                 TextField("Title", text: $recording.title)
@@ -69,28 +72,37 @@ struct RecordingStudioView: View {
                 HStack(spacing: 8) {
                     Text(recording.createdAt.formatted(date: .abbreviated, time: .shortened))
                     Text(timeString(duration))
-                    if let note = recording.note {
-                        Button {
-                            appState.sidebarSelection = .allNotes
-                            appState.selectedNoteID = note.persistentModelID
-                            dismiss()
-                        } label: {
-                            Label(note.title.isEmpty ? "Untitled" : note.title, systemImage: "note.text")
-                        }
-                        .buttonStyle(.link)
-                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
+                if let note = recording.note {
+                    Button {
+                        appState.sidebarSelection = .allNotes
+                        appState.selectedNoteID = note.persistentModelID
+                    } label: {
+                        Label(note.title.isEmpty ? "Untitled" : note.title, systemImage: "note.text")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.link)
+                }
+                if let busy {
+                    HStack(spacing: 5) {
+                        ProgressView().controlSize(.mini)
+                        Text(busy).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
             }
             Spacer()
-            if let busy {
-                ProgressView().controlSize(.small)
-                Text(busy).font(.caption).foregroundStyle(.secondary)
+            Button {
+                close()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
             }
-            Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
+            .buttonStyle(.plain)
+            .help("Close Studio")
         }
-        .padding(14)
+        .padding(12)
     }
 
     // MARK: - Waveform
@@ -156,30 +168,30 @@ struct RecordingStudioView: View {
     // MARK: - Transport
 
     private var transport: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 10) {
             Text(timeString(currentTime))
-                .font(.system(.callout, design: .monospaced))
-                .frame(width: 66, alignment: .trailing)
+                .font(.system(.caption, design: .monospaced))
+                .frame(width: 52, alignment: .trailing)
 
+            Spacer(minLength: 0)
             Button { seek(to: currentTime - 15) } label: {
-                Image(systemName: "gobackward.15").font(.title3)
+                Image(systemName: "gobackward.15").font(.body)
             }
             Button { togglePlay() } label: {
                 Image(systemName: isPlaying ? "pause.circle.fill" : "play.circle.fill")
-                    .font(.system(size: 40))
+                    .font(.system(size: 34))
                     .foregroundStyle(Color.fogAccent)
             }
             .keyboardShortcut(.space, modifiers: [])
             Button { seek(to: currentTime + 15) } label: {
-                Image(systemName: "goforward.15").font(.title3)
+                Image(systemName: "goforward.15").font(.body)
             }
+            Spacer(minLength: 0)
 
             Text(timeString(duration))
-                .font(.system(.callout, design: .monospaced))
+                .font(.system(.caption, design: .monospaced))
                 .foregroundStyle(.secondary)
-                .frame(width: 66, alignment: .leading)
-
-            Spacer()
+                .frame(width: 52, alignment: .leading)
 
             Picker("Speed", selection: $rate) {
                 ForEach([Float(0.5), 0.75, 1.0, 1.25, 1.5, 2.0], id: \.self) { speed in
@@ -187,6 +199,7 @@ struct RecordingStudioView: View {
                 }
             }
             .pickerStyle(.menu)
+            .labelsHidden()
             .fixedSize()
             .onChange(of: rate) { player?.rate = rate }
         }
@@ -196,38 +209,45 @@ struct RecordingStudioView: View {
     // MARK: - Trim
 
     private var trimBar: some View {
-        HStack(spacing: 10) {
-            Button {
-                selectionIn = currentTime
-                if let out = selectionOut, out <= currentTime { selectionOut = nil }
-            } label: {
-                Label(selectionIn.map { "In \(timeString($0))" } ?? "Set In", systemImage: "chevron.left.to.line")
+        VStack(spacing: 6) {
+            HStack(spacing: 8) {
+                Button {
+                    selectionIn = currentTime
+                    if let out = selectionOut, out <= currentTime { selectionOut = nil }
+                } label: {
+                    Label(selectionIn.map { "In \(timeString($0))" } ?? "Set In", systemImage: "chevron.left.to.line")
+                        .frame(maxWidth: .infinity)
+                }
+                Button {
+                    selectionOut = currentTime
+                    if let inPoint = selectionIn, inPoint >= currentTime { selectionIn = 0 }
+                } label: {
+                    Label(selectionOut.map { "Out \(timeString($0))" } ?? "Set Out", systemImage: "chevron.right.to.line")
+                        .frame(maxWidth: .infinity)
+                }
+                if selectionIn != nil || selectionOut != nil {
+                    Button("Clear") { selectionIn = nil; selectionOut = nil }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.secondary)
+                }
             }
-            Button {
-                selectionOut = currentTime
-                if let inPoint = selectionIn, inPoint >= currentTime { selectionIn = 0 }
-            } label: {
-                Label(selectionOut.map { "Out \(timeString($0))" } ?? "Set Out", systemImage: "chevron.right.to.line")
+            HStack(spacing: 8) {
+                Button {
+                    Task { await saveSelection(asNew: true) }
+                } label: {
+                    Label("Save as New Clip", systemImage: "square.and.arrow.down.on.square")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(!hasSelection || busy != nil)
+                Button(role: .destructive) {
+                    confirmTrim()
+                } label: {
+                    Label("Trim", systemImage: "scissors")
+                        .frame(maxWidth: .infinity)
+                }
+                .disabled(!hasSelection || busy != nil)
+                .help("Replaces this recording's audio with the selected range")
             }
-            if selectionIn != nil || selectionOut != nil {
-                Button("Clear") { selectionIn = nil; selectionOut = nil }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            Button {
-                Task { await saveSelection(asNew: true) }
-            } label: {
-                Label("Save Selection as New", systemImage: "square.and.arrow.down.on.square")
-            }
-            .disabled(!hasSelection || busy != nil)
-            Button(role: .destructive) {
-                confirmTrim()
-            } label: {
-                Label("Trim to Selection", systemImage: "scissors")
-            }
-            .disabled(!hasSelection || busy != nil)
-            .help("Replaces this recording's audio with the selected range")
         }
         .controlSize(.small)
     }

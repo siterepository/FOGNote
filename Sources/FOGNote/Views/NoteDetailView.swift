@@ -34,6 +34,10 @@ struct NoteDetailView: View {
             RecordingPanel(recorder: recorder, note: note, isPresented: $showRecorder)
                 .inspectorColumnWidth(min: 280, ideal: 330, max: 460)
         }
+        .onChange(of: appState.studioRecording) { _, studio in
+            // Studio and recorder share the right side — one at a time.
+            if studio != nil { showRecorder = false }
+        }
         .onAppear {
             loadNote()
             // Sticky recording: switching notes keeps the panel visible.
@@ -180,6 +184,7 @@ struct NoteDetailView: View {
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup {
             Button {
+                appState.studioRecording = nil
                 showRecorder = true
             } label: {
                 Label("Record", systemImage: recorder.isActive ? "record.circle.fill" : "record.circle")

@@ -34,6 +34,16 @@ struct ContentView: View {
                 )
             }
         }
+        .inspector(isPresented: Binding(
+            get: { appState.studioRecording != nil },
+            set: { if !$0 { appState.studioRecording = nil } }
+        )) {
+            if let recording = appState.studioRecording {
+                RecordingStudioView(recording: recording)
+                    .id(recording.persistentModelID)
+                    .inspectorColumnWidth(min: 340, ideal: 430, max: 560)
+            }
+        }
         .searchable(text: $appState.searchText, placement: .sidebar, prompt: "Search notes, tag:name…")
         .frame(minWidth: 940, minHeight: 560)
         .task { NotificationService.syncAll(context: context) }
