@@ -47,6 +47,7 @@ struct RecordingPanel: View {
             }
         }
         .padding(14)
+        .padding(.trailing, 6)
     }
 
     private var header: some View {

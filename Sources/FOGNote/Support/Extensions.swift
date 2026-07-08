@@ -52,6 +52,26 @@ extension AttributedString {
     }
 }
 
+/// Opening an inspector on a full-width window can push its right edge off
+/// screen. This pulls the window back inside the visible frame.
+@MainActor
+enum WindowFitter {
+    static func clampMainWindowToScreen(delay: TimeInterval = 0.4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard let window = NSApp.mainWindow ?? NSApp.keyWindow,
+                  let screen = window.screen ?? NSScreen.main else { return }
+            let visible = screen.visibleFrame
+            var frame = window.frame
+            guard !visible.contains(frame) else { return }
+            frame.size.width = min(frame.width, visible.width)
+            frame.size.height = min(frame.height, visible.height)
+            frame.origin.x = min(max(frame.origin.x, visible.minX), visible.maxX - frame.width)
+            frame.origin.y = min(max(frame.origin.y, visible.minY), visible.maxY - frame.height)
+            window.setFrame(frame, display: true, animate: true)
+        }
+    }
+}
+
 extension Date {
     var noteListLabel: String {
         if Calendar.current.isDateInToday(self) {

@@ -38,6 +38,9 @@ struct NoteDetailView: View {
             // Studio and recorder share the right side — one at a time.
             if studio != nil { showRecorder = false }
         }
+        .onChange(of: showRecorder) { _, open in
+            if open { WindowFitter.clampMainWindowToScreen() }
+        }
         .onAppear {
             loadNote()
             // Sticky recording: switching notes keeps the panel visible.

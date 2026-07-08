@@ -54,6 +54,7 @@ struct RecordingStudioView: View {
             Divider()
             transcriptPane
         }
+        .padding(.trailing, 8)
         .onAppear(perform: setUp)
         .onDisappear(perform: tearDown)
     }

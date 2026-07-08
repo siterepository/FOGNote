@@ -12,7 +12,7 @@ struct ContentView: View {
         @Bindable var appState = appState
         NavigationSplitView {
             SidebarView()
-                .navigationSplitViewColumnWidth(min: 200, ideal: 230)
+                .navigationSplitViewColumnWidth(min: 200, ideal: 230, max: 320)
         } content: {
             if appState.sidebarSelection == .recordings {
                 RecordingsListView()
@@ -22,27 +22,34 @@ struct ContentView: View {
                     .navigationSplitViewColumnWidth(min: 260, ideal: 320)
             }
         } detail: {
-            if let noteID = appState.selectedNoteID,
-               let note = context.registeredModel(for: noteID) as Note? {
-                NoteDetailView(note: note)
-                    .id(noteID)
-            } else {
-                ContentUnavailableView(
-                    "No Note Selected",
-                    systemImage: "cloud.fog",
-                    description: Text("Select a note or press ⌘N to create one.")
-                )
+            Group {
+                if let noteID = appState.selectedNoteID,
+                   let note = context.registeredModel(for: noteID) as Note? {
+                    NoteDetailView(note: note)
+                        .id(noteID)
+                } else {
+                    ContentUnavailableView(
+                        "No Note Selected",
+                        systemImage: "cloud.fog",
+                        description: Text("Select a note or press ⌘N to create one.")
+                    )
+                }
+            }
+            // Studio docks inside the detail column (same attachment as the
+            // recorder panel) so it always fits within the window.
+            .inspector(isPresented: Binding(
+                get: { appState.studioRecording != nil },
+                set: { if !$0 { appState.studioRecording = nil } }
+            )) {
+                if let recording = appState.studioRecording {
+                    RecordingStudioView(recording: recording)
+                        .id(recording.persistentModelID)
+                        .inspectorColumnWidth(min: 340, ideal: 400, max: 520)
+                }
             }
         }
-        .inspector(isPresented: Binding(
-            get: { appState.studioRecording != nil },
-            set: { if !$0 { appState.studioRecording = nil } }
-        )) {
-            if let recording = appState.studioRecording {
-                RecordingStudioView(recording: recording)
-                    .id(recording.persistentModelID)
-                    .inspectorColumnWidth(min: 340, ideal: 430, max: 560)
-            }
+        .onChange(of: appState.studioRecording != nil) { _, open in
+            if open { WindowFitter.clampMainWindowToScreen() }
         }
         .searchable(text: $appState.searchText, placement: .sidebar, prompt: "Search notes, tag:name…")
         .frame(minWidth: 940, minHeight: 560)

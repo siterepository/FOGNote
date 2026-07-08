@@ -60,12 +60,14 @@ struct SidebarView: View {
                         }
                     } label: {
                         Label(stack.name, systemImage: "folder.circle")
-                            .tag(SidebarItem.stack(stack.persistentModelID))
                             .contextMenu {
                                 Button("Rename Stack") { rename(stack: stack) }
                                 Button("Delete Stack", role: .destructive) { context.delete(stack) }
                             }
                     }
+                    // Tag on the row (not the inner label) so clicking a
+                    // stack selects it; the chevron still expands it.
+                    .tag(SidebarItem.stack(stack.persistentModelID))
                 }
                 ForEach(looseNotebooks) { nb in
                     notebookRow(nb)
