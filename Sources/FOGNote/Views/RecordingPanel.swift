@@ -1,19 +1,19 @@
 import SwiftUI
 import SwiftData
 
-/// Live recording HUD: timer, level meters, live two-speaker transcript,
-/// bookmarks, pause/stop. Presented as a sheet while a call records.
+/// Live recording pane, docked as a right-side inspector in the main window —
+/// take notes in the editor while the call records beside them.
 struct RecordingPanel: View {
     @Environment(\.modelContext) private var context
-    @Environment(\.dismiss) private var dismiss
     @Environment(AppState.self) private var appState
     @Bindable var recorder: CallRecorder
     let note: Note
+    @Binding var isPresented: Bool
 
     @AppStorage("autoSummarize") private var autoSummarize = true
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             header
 
             switch recorder.state {
@@ -24,7 +24,10 @@ struct RecordingPanel: View {
             case .processing(let stage):
                 VStack(spacing: 10) {
                     ProgressView()
-                    Text(stage).foregroundStyle(.secondary)
+                    Text(stage)
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                 }
                 .frame(maxHeight: .infinity)
             case .failed(let message):
@@ -33,19 +36,17 @@ struct RecordingPanel: View {
                         .font(.largeTitle)
                         .foregroundStyle(Color.fogWarn)
                     Text(message)
+                        .font(.callout)
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: 360)
                     Button("OK") {
                         recorder.dismissFailure()
-                        dismiss()
+                        isPresented = false
                     }
                 }
                 .frame(maxHeight: .infinity)
             }
         }
-        .padding(18)
-        .frame(width: 520, height: 480)
-        .interactiveDismissDisabled(recorder.isActive || recorder.state != .idle)
+        .padding(14)
     }
 
     private var header: some View {
@@ -64,7 +65,7 @@ struct RecordingPanel: View {
 
     private var preflight: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Record this call into “\(note.title.isEmpty ? "New Note" : note.title)”.")
+            Text("Record this call into “\(note.title.isEmpty ? "New Note" : note.title)”. Keep typing notes — recording runs beside the editor.")
                 .font(.callout)
             Toggle(isOn: $recorder.captureSystemAudio) {
                 VStack(alignment: .leading) {
@@ -82,35 +83,40 @@ struct RecordingPanel: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            Spacer()
-            HStack {
-                Button("Cancel") { dismiss() }
-                Spacer()
-                Button {
-                    Task { await recorder.start() }
-                } label: {
-                    Label("Start Recording", systemImage: "record.circle")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: "#E5484D"))
+            Button {
+                Task { await recorder.start() }
+            } label: {
+                Label("Start Recording", systemImage: "record.circle")
+                    .frame(maxWidth: .infinity)
             }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(Color(hex: "#E5484D"))
+            Button("Close") { isPresented = false }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+            Spacer()
         }
         .frame(maxHeight: .infinity, alignment: .top)
     }
 
     private var liveView: some View {
         VStack(spacing: 10) {
-            HStack(spacing: 14) {
-                meter(label: "Me", level: recorder.micLevel, color: Color.fogAccent)
-                if recorder.captureSystemAudio {
-                    meter(label: "Them", level: recorder.systemLevel, color: Color.fogSecondary)
+            VStack(spacing: 6) {
+                HStack(spacing: 12) {
+                    meter(label: "Me", level: recorder.micLevel, color: Color.fogAccent)
+                    if recorder.captureSystemAudio {
+                        meter(label: "Them", level: recorder.systemLevel, color: Color.fogSecondary)
+                    }
+                    Spacer()
                 }
-                Spacer()
                 let ratio = recorder.talkSecondsMe + recorder.talkSecondsThem > 0
                     ? Int((recorder.talkSecondsMe / (recorder.talkSecondsMe + recorder.talkSecondsThem) * 100).rounded())
                     : 0
                 Text("Talk: \(ratio)% you")
                     .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .foregroundStyle(ratio > 60 ? AnyShapeStyle(Color.fogWarn) : AnyShapeStyle(.secondary))
                     .help("Top reps stay near 43%. Amber above 60%.")
             }
@@ -156,11 +162,12 @@ struct RecordingPanel: View {
                 }
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button {
                     recorder.addBookmark()
                 } label: {
                     Label("Bookmark", systemImage: "flag")
+                        .frame(maxWidth: .infinity)
                 }
                 .keyboardShortcut("m", modifiers: .command)
                 .help("Flag this moment (⌘M)")
@@ -170,18 +177,19 @@ struct RecordingPanel: View {
                 } label: {
                     Label(recorder.state == .paused ? "Resume" : "Pause",
                           systemImage: recorder.state == .paused ? "play.fill" : "pause.fill")
+                        .frame(maxWidth: .infinity)
                 }
-
-                Spacer()
-
-                Button {
-                    Task { await finishRecording() }
-                } label: {
-                    Label("Stop & Save", systemImage: "stop.circle.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Color(hex: "#E5484D"))
             }
+
+            Button {
+                Task { await finishRecording() }
+            } label: {
+                Label("Stop & Save", systemImage: "stop.circle.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .tint(Color(hex: "#E5484D"))
         }
     }
 
@@ -208,7 +216,7 @@ struct RecordingPanel: View {
         let capturedSystem = recorder.captureSystemAudio
 
         guard let result = await recorder.stop() else {
-            if case .failed = recorder.state {} else { dismiss() }
+            if case .failed = recorder.state {} else { isPresented = false }
             return
         }
 
@@ -226,7 +234,7 @@ struct RecordingPanel: View {
         context.insert(recording)
         note.modifiedAt = .now
         try? context.save()
-        dismiss()
+        isPresented = false
 
         if autoSummarize && !transcript.isEmpty {
             let summary = (try? await SummaryService.summarize(recording: recording)) ?? ""

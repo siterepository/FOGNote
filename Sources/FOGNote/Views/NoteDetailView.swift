@@ -30,6 +30,10 @@ struct NoteDetailView: View {
             }
         }
         .toolbar { toolbarContent }
+        .inspector(isPresented: $showRecorder) {
+            RecordingPanel(recorder: recorder, note: note, isPresented: $showRecorder)
+                .inspectorColumnWidth(min: 280, ideal: 330, max: 460)
+        }
         .onAppear {
             loadNote()
             if ProcessInfo.processInfo.arguments.contains("--uitest-recorder") {
@@ -182,9 +186,6 @@ struct NoteDetailView: View {
             }
             .keyboardShortcut("r", modifiers: [.command, .shift])
             .help("Record a call into this note (⌘⇧R)")
-            .sheet(isPresented: $showRecorder) {
-                RecordingPanel(recorder: recorder, note: note)
-            }
 
             Button {
                 note.isPinned.toggle()
